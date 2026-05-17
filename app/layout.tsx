@@ -11,10 +11,36 @@ export const metadata: Metadata = {
   description: "إدارة احترافية متكاملة",
 };
 
+// قراءة حالة القفل من متغيرات البيئة في فيرسل
+const isAppLocked = process.env.NEXT_PUBLIC_APP_LOCKED === "true";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  
+  // الحالة الأولى: لو النظام مقفول
+  if (isAppLocked) {
+    return (
+      <html lang="ar" dir="rtl" className={`${geistSans.variable} ${geistMono.variable}`}>
+        <body className="min-h-screen bg-slate-100 flex items-center justify-center p-6 font-sans">
+          <div className="bg-white p-12 rounded-[3rem] shadow-2xl text-center border-t-8 border-rose-600 max-w-md">
+            <div className="text-6xl mb-6">🛑</div>
+            <h1 className="text-3xl font-black text-slate-900 mb-4">النظام متوقف</h1>
+            <p className="text-slate-600 font-bold leading-relaxed mb-6">
+              عفواً يا عمدة، النسخة التجريبية انتهت. 
+              يرجى التواصل مع المطور لتفعيل النظام بالكامل.
+            </p>
+            <div className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
+              Contact Developer for Activation
+            </div>
+          </div>
+        </body>
+      </html>
+    );
+  }
+
+  // الحالة الثانية: لو النظام شغال (الكود الأصلي بتاعك)
   return (
     <html lang="ar" dir="rtl" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
-      <body className="h-full bg-[#f8fafc] text-slate-900 flex overflow-hidden">
+      <body className="h-full bg-[#f8fafc] text-slate-900 flex overflow-hidden font-sans">
         
         {/* Sidebar الاحترافي */}
         <aside className="group fixed right-0 top-0 h-full w-20 hover:w-64 bg-slate-900 text-slate-300 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] z-50 shadow-2xl flex flex-col border-l border-slate-800">
@@ -29,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav className="flex-1 px-3 py-6 space-y-4">
             <SidebarItem href="/" icon="🏠" label="الرئيسية" />
             <SidebarItem href="/suppliers" icon="📦" label="الموردين" />
-            <SidebarItem href="/customer" icon="👥" label="العملاء" /> {/* تم تعديل المسار هنا */}
+            <SidebarItem href="/customer" icon="👥" label="العملاء" />
             <SidebarItem href="/inventory" icon="🏗️" label="المخازن" />
           </nav>
 
