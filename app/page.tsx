@@ -125,7 +125,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start flex-wrap gap-4">
             <div>
               <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">{getGreeting()}</p>
-              <h1 className="text-3xl font-black text-white">منظومة العمدة 🌾</h1>
+              <h1 className="text-3xl font-black text-white">منظومة المحاسبة الذكية </h1>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">إدارة التجارة والمخازن</p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
