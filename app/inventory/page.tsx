@@ -1,8 +1,40 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+
+type Product = {
+  id: string;
+  name: string;
+  unit: string;
+  purchase_price: number | string;
+  sale_price: number | string;
+  stock_quantity: number | string;
+  barcode?: string | null;
+};
+
+type ScannerControls = {
+  reset?: () => void;
+  stop?: () => void;
+};
+
+const generateBarcode = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (char) =>
+    (
+      Number(char) ^
+      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(char) / 4)))
+    ).toString(16)
+  );
+};
+
+const isUuid = (value: string) => {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+};
 
 export default function InventoryPage() {
 
@@ -10,7 +42,7 @@ export default function InventoryPage() {
   // STATES
   // =========================
 
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -20,11 +52,11 @@ export default function InventoryPage() {
   const [isBarcodeViewOpen, setIsBarcodeViewOpen] = useState(false);
 
   // المنتج الحالي للعرض
-  const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
+  const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
 
   // تعديل
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<any>({});
+  const [editForm, setEditForm] = useState<Partial<Product>>({});
 
   // منتج جديد
   const [newProduct, setNewProduct] = useState({
@@ -43,7 +75,8 @@ export default function InventoryPage() {
   // سكانر كاميرا
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const readerRef = useRef<any>(null);
+  const readerRef = useRef<ScannerControls | null>(null);
+  const scanLockedRef = useRef(false);
 
   // Canvas للباركود
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,15 +85,7 @@ export default function InventoryPage() {
   // FETCH
   // =========================
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  useEffect(() => {
-    scannerInputRef.current?.focus();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
 
     const { data } = await supabase
@@ -68,20 +93,81 @@ export default function InventoryPage() {
       .select("*")
       .order("name", { ascending: true });
 
-    setProducts(data || []);
+    setProducts((data || []) as Product[]);
     setLoading(false);
 
     setTimeout(() => {
       scannerInputRef.current?.focus();
     }, 100);
-  };
+  }, []);
 
   // =========================
   // توليد باركود تلقائي
   // =========================
 
-  const generateBarcode = () => {
-    return `${Date.now()}${Math.floor(Math.random() * 999)}`;
+  const cleanBarcode = (value: unknown) => {
+    return value?.toString().trim() || "";
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchProducts();
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    scannerInputRef.current?.focus();
+  }, []);
+
+  const generateUniqueBarcode = () => {
+    let barcode = generateBarcode();
+
+    while (
+      products.some(
+        (product) => cleanBarcode(product.barcode) === barcode
+      )
+    ) {
+      barcode = generateBarcode();
+    }
+
+    return barcode;
+  };
+
+  const escapeHtml = (value: unknown) => {
+    return value
+      ?.toString()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;") || "";
+  };
+
+  const ensureProductBarcode = (product: Product) => {
+    const existingBarcode = cleanBarcode(product.barcode);
+
+    if (existingBarcode) {
+      return { ...product, barcode: existingBarcode };
+    }
+
+    const barcode = generateUniqueBarcode();
+
+    setProducts((current) =>
+      current.map((item) =>
+        item.id === product.id ? { ...item, barcode } : item
+      )
+    );
+
+    supabase
+      .from("products")
+      .update({ barcode })
+      .eq("id", product.id)
+      .then(({ error }) => {
+        if (error) {
+          alert("تم عرض الباركود، لكن تعذر حفظه على المنتج: " + error.message);
+        }
+      });
+
+    return { ...product, barcode };
   };
 
   // =========================
@@ -109,13 +195,14 @@ export default function InventoryPage() {
   // فتح عرض الباركود
   // =========================
 
-  const openBarcodeView = async (product: any) => {
-    setBarcodeProduct(product);
+  const openBarcodeView = (product: Product) => {
+    const productWithBarcode = ensureProductBarcode(product);
+    setBarcodeProduct(productWithBarcode);
     setIsBarcodeViewOpen(true);
 
     setTimeout(async () => {
       if (barcodeCanvasRef.current) {
-        await drawBarcode(product.barcode, barcodeCanvasRef.current);
+        await drawBarcode(productWithBarcode.barcode, barcodeCanvasRef.current);
       }
     }, 100);
   };
@@ -180,17 +267,17 @@ export default function InventoryPage() {
 
           <img src="${dataUrl}" />
 
-          <h2>${barcodeProduct.name}</h2>
+          <h2>${escapeHtml(barcodeProduct.name)}</h2>
 
           <p>
             سعر البيع:
-            ${barcodeProduct.sale_price}
+            ${escapeHtml(barcodeProduct.sale_price)}
             ج.م
           </p>
 
           <p>
             الوحدة:
-            ${barcodeProduct.unit}
+            ${escapeHtml(barcodeProduct.unit)}
           </p>
 
         </div>
@@ -215,10 +302,12 @@ export default function InventoryPage() {
 
   const handleScannerInput = async (value: string) => {
 
-    if (!value.trim()) return;
+    const barcodeValue = cleanBarcode(value);
+
+    if (!barcodeValue) return;
 
     const found = products.find(
-      (p) => p.barcode?.toString() === value.toString()
+      (p) => cleanBarcode(p.barcode) === barcodeValue
     );
 
     // صوت نجاح
@@ -235,7 +324,7 @@ export default function InventoryPage() {
 
       successAudio.play();
 
-      setSearchTerm(value);
+      setSearchTerm(barcodeValue);
 
     } else {
 
@@ -243,7 +332,7 @@ export default function InventoryPage() {
 
       setNewProduct((prev) => ({
         ...prev,
-        barcode: value,
+        barcode: barcodeValue,
       }));
 
       setIsModalOpen(true);
@@ -262,24 +351,16 @@ export default function InventoryPage() {
 
   const startScanner = async () => {
 
+    if (isScannerOpen) return;
+
+    scanLockedRef.current = false;
     setIsScannerOpen(true);
 
     setTimeout(async () => {
 
       try {
 
-        const stream =
-          await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: "environment",
-            },
-          });
-
-        streamRef.current = stream;
-
         if (videoRef.current) {
-
-          videoRef.current.srcObject = stream;
 
           const { BrowserMultiFormatReader } =
             await import("@zxing/browser");
@@ -287,22 +368,29 @@ export default function InventoryPage() {
           const codeReader =
             new BrowserMultiFormatReader();
 
-          readerRef.current = codeReader;
-
-          codeReader.decodeFromVideoElement(
+          const controls = await codeReader.decodeFromConstraints(
+            {
+              video: {
+                facingMode: "environment",
+              },
+            },
             videoRef.current,
-            (result) => {
+            (result, _error, controls) => {
 
-              if (result) {
+              if (result && !scanLockedRef.current) {
 
+                scanLockedRef.current = true;
                 const code = result.getText();
 
-                stopScanner();
+                controls.stop();
+                setIsScannerOpen(false);
 
                 handleScannerInput(code);
               }
             }
           );
+
+          readerRef.current = controls;
         }
 
       } catch {
@@ -323,7 +411,14 @@ export default function InventoryPage() {
         readerRef.current.reset();
       }
 
+      if (readerRef.current?.stop) {
+        readerRef.current.stop();
+      }
+
     } catch {}
+
+    readerRef.current = null;
+    scanLockedRef.current = false;
 
     if (streamRef.current) {
 
@@ -334,6 +429,16 @@ export default function InventoryPage() {
       streamRef.current = null;
     }
 
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+
+      stream
+        .getTracks()
+        .forEach((track) => track.stop());
+
+      videoRef.current.srcObject = null;
+    }
+
     setIsScannerOpen(false);
   };
 
@@ -341,16 +446,26 @@ export default function InventoryPage() {
   // EDIT
   // =========================
 
-  const startEdit = (product: any) => {
+  const startEdit = (product: Product) => {
     setEditingId(product.id);
-    setEditForm({ ...product });
+    setEditForm({
+  ...product,
+  barcode: product.barcode || "",
+});
   };
 
   const saveEdit = async () => {
 
+    const barcodeValue = cleanBarcode(editForm.barcode);
+
+    if (barcodeValue && !isUuid(barcodeValue)) {
+      return alert("الباركود لازم يكون UUID صالح. امسح الخانة أو استخدم باركود مولد من النظام.");
+    }
+
     const exists = products.find(
       (p) =>
-        p.barcode === editForm.barcode &&
+        barcodeValue &&
+        cleanBarcode(p.barcode) === barcodeValue &&
         p.id !== editingId
     );
 
@@ -366,7 +481,7 @@ export default function InventoryPage() {
         purchase_price: Number(editForm.purchase_price),
         sale_price: Number(editForm.sale_price),
         stock_quantity: Number(editForm.stock_quantity),
-        barcode: editForm.barcode,
+        barcode: barcodeValue,
       })
       .eq("id", editingId);
 
@@ -395,13 +510,17 @@ export default function InventoryPage() {
     }
 
     const barcodeValue =
-      newProduct.barcode.trim() !== ""
-        ? newProduct.barcode
-        : generateBarcode();
+      cleanBarcode(newProduct.barcode) !== ""
+        ? cleanBarcode(newProduct.barcode)
+        : generateUniqueBarcode();
+
+    if (!isUuid(barcodeValue)) {
+      return alert("الباركود لازم يكون UUID صالح. سيب خانة الباركود فاضية وأنا هولده تلقائيًا.");
+    }
 
     // منع التكرار
     const exists = products.find(
-      (p) => p.barcode === barcodeValue
+      (p) => cleanBarcode(p.barcode) === barcodeValue
     );
 
     if (exists) {
@@ -469,7 +588,7 @@ export default function InventoryPage() {
   return (
 
     <div
-      className="min-h-screen bg-slate-50 p-6"
+      className="min-h-screen bg-slate-50 p-6 text-black"
       dir="rtl"
     >
 
@@ -676,7 +795,7 @@ export default function InventoryPage() {
                       <td className="p-2">
 
                         <input
-                          value={editForm.barcode}
+                          value={editForm.barcode || ""}
                           onChange={(e) =>
                             setEditForm({
                               ...editForm,
@@ -729,7 +848,7 @@ export default function InventoryPage() {
 
                       <td
                         className={`p-4 font-bold ${
-                          p.stock_quantity <= 5
+                          Number(p.stock_quantity) <= 5
                             ? "text-red-600"
                             : "text-emerald-600"
                         }`}
