@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -7,19 +7,43 @@ import Link from "next/link";
 interface Product {
   id: string; name: string; unit: string;
   purchase_price: number; sale_price: number; stock_quantity: number;
+  barcode?: string | null;
 }
 interface CartItem extends Product {
   qty: number | string;
   p_price: number | string;
 }
 
+interface Supplier {
+  id: string;
+  name: string;
+  balance?: number;
+}
+
 const UNITS = ["كيلو","جرام","لتر","ملي","عبوة","شكارة","طن","وحدة"];
+
+const INVOICE_UNITS = ["كيلو", "جرام", "مللي", "لتر", "كرتونة", "شكارة", "عبوة", "حبة"];
+
+void UNITS;
+
+const generateBarcode = () => {
+  const randomPart =
+    typeof crypto !== "undefined"
+      ? Array.from(crypto.getRandomValues(new Uint8Array(10))).map((value) => value % 10).join("")
+      : Math.floor(Math.random() * 10_000_000_000).toString().padStart(10, "0");
+
+  return `20${randomPart}`;
+};
+
+const cleanBarcode = (value: unknown) => value?.toString().trim() || "";
+
+const isPrintableBarcode = (value: string) => /^[A-Za-z0-9-]{4,24}$/.test(value);
 
 export default function SupplierInvoicePage() {
   const { id } = useParams();
   const router  = useRouter();
 
-  const [supplier, setSupplier]     = useState<any>(null);
+  const [supplier, setSupplier]     = useState<Supplier | null>(null);
   const [products, setProducts]     = useState<Product[]>([]);
   const [cart, setCart]             = useState<CartItem[]>([]);
   const [cashPaid, setCashPaid]     = useState<number | string>(0);
@@ -29,26 +53,103 @@ export default function SupplierInvoicePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newProd, setNewProd]       = useState({ name: "", unit: "كيلو", purchase_price: "", sale_price: "" });
   const [addingSaving, setAddingSaving] = useState(false);
+  const [newProdBarcode, setNewProdBarcode] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scanControlsRef = useRef<{ stop?: () => void } | null>(null);
+  const scanLockedRef = useRef(false);
 
-  useEffect(() => { if (id) loadData(); }, [id]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     const [{ data: supp }, { data: prods }] = await Promise.all([
       supabase.from("suppliers").select("*").eq("id", id).single(),
       supabase.from("products").select("*").order("name"),
     ]);
     setSupplier(supp);
     setProducts(prods || []);
-  }
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadData();
+    }
+  }, [id, loadData]);
 
   const filteredProducts = useMemo(() =>
-    products.filter(p => p.name.includes(searchTerm)),
+    products.filter(p =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cleanBarcode(p.barcode).includes(searchTerm)
+    ),
     [products, searchTerm]
   );
 
   const addToCart = (p: Product) => {
     if (cart.find(i => i.id === p.id)) return;
     setCart(prev => [...prev, { ...p, qty: 1, p_price: p.purchase_price }]);
+  };
+
+  const handleBarcodeEntry = (value: string) => {
+    const barcode = cleanBarcode(value);
+
+    if (!barcode) return;
+
+    const found = products.find(p => cleanBarcode(p.barcode) === barcode);
+
+    if (found) {
+      addToCart(found);
+      setSearchTerm(barcode);
+      return;
+    }
+
+    setNewProdBarcode(barcode);
+    setShowAddModal(true);
+  };
+
+  const startBarcodeScanner = async () => {
+    if (scannerOpen) return;
+
+    scanLockedRef.current = false;
+    setScannerOpen(true);
+
+    setTimeout(async () => {
+      try {
+        if (!videoRef.current) return;
+
+        const { BrowserMultiFormatReader } = await import("@zxing/browser");
+        const reader = new BrowserMultiFormatReader();
+        const controls = await reader.decodeFromConstraints(
+          { video: { facingMode: "environment" } },
+          videoRef.current,
+          (result, _error, controls) => {
+            if (!result || scanLockedRef.current) return;
+
+            scanLockedRef.current = true;
+            controls.stop();
+            setScannerOpen(false);
+            handleBarcodeEntry(result.getText());
+          }
+        );
+
+        scanControlsRef.current = controls;
+      } catch {
+        setScannerOpen(false);
+        alert("تعذر تشغيل الكاميرا");
+      }
+    }, 250);
+  };
+
+  const stopBarcodeScanner = () => {
+    scanControlsRef.current?.stop?.();
+    scanControlsRef.current = null;
+    scanLockedRef.current = false;
+
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+
+    setScannerOpen(false);
   };
 
   const removeFromCart = (pid: string) => setCart(prev => prev.filter(i => i.id !== pid));
@@ -62,23 +163,36 @@ export default function SupplierInvoicePage() {
 
   async function handleAddNewProduct() {
     if (!newProd.name.trim() || !newProd.purchase_price) return alert("اكمل البيانات!");
+    const barcode = cleanBarcode(newProdBarcode) || generateBarcode();
+
+    if (!isPrintableBarcode(barcode)) {
+      return alert("الباركود لازم يكون 4 إلى 24 رقم/حرف إنجليزي فقط.");
+    }
+
+    if (products.some(product => cleanBarcode(product.barcode) === barcode)) {
+      return alert("الباركود مستخدم بالفعل");
+    }
+
     setAddingSaving(true);
     const { data } = await supabase.from("products").insert([{
       name: newProd.name, unit: newProd.unit,
       purchase_price: Number(newProd.purchase_price),
       sale_price: Number(newProd.sale_price) || Number(newProd.purchase_price),
       stock_quantity: 0,
+      barcode,
     }]).select().single();
     if (data) {
       setProducts(prev => [...prev, data]);
       addToCart(data);
       setShowAddModal(false);
+      setNewProdBarcode("");
       setNewProd({ name: "", unit: "كيلو", purchase_price: "", sale_price: "" });
     }
     setAddingSaving(false);
   }
 
   async function saveInvoice() {
+    if (!supplier) return alert("بيانات المورد لم تحمل بعد");
     if (cart.length === 0) return alert("الفاتورة فارغة!");
     setIsSaving(true);
     try {
@@ -126,7 +240,7 @@ export default function SupplierInvoicePage() {
           {cart.length > 0 && (
             <span className="bg-amber-500 px-3 py-1 rounded-lg text-[10px] font-black">{cart.length} صنف</span>
           )}
-          <div className={`px-4 py-1.5 rounded-lg text-[10px] font-black ${supplier?.balance > 0 ? "bg-rose-600" : "bg-emerald-600"}`}>
+          <div className={`px-4 py-1.5 rounded-lg text-[10px] font-black ${(supplier?.balance || 0) > 0 ? "bg-rose-600" : "bg-emerald-600"}`}>
             مديونية: {supplier?.balance?.toLocaleString("ar-EG")} ج.م
           </div>
         </div>
@@ -144,7 +258,24 @@ export default function SupplierInvoicePage() {
               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none focus:border-indigo-400 transition-all text-sm"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") handleBarcodeEntry(searchTerm);
+              }}
             />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleBarcodeEntry(searchTerm)}
+                className="bg-slate-900 text-white py-2.5 rounded-xl text-xs font-black transition-all"
+              >
+                إدخال باركود
+              </button>
+              <button
+                onClick={startBarcodeScanner}
+                className="bg-indigo-600 text-white py-2.5 rounded-xl text-xs font-black transition-all"
+              >
+                سكان كاميرا
+              </button>
+            </div>
             <button
               onClick={() => setShowAddModal(true)}
               className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 border border-dashed border-amber-300 py-2.5 rounded-xl text-xs font-black transition-all"
@@ -301,13 +432,22 @@ export default function SupplierInvoicePage() {
                 />
               </div>
               <div>
+                <label className="text-xs font-black text-slate-400 mb-1 block">الباركود</label>
+                <input
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none focus:border-amber-400 transition-all font-mono"
+                  placeholder="اتركه فارغًا للتوليد التلقائي"
+                  value={newProdBarcode}
+                  onChange={e => setNewProdBarcode(e.target.value)}
+                />
+              </div>
+              <div>
                 <label className="text-xs font-black text-slate-400 mb-1 block">وحدة القياس</label>
                 <select
                   className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none focus:border-amber-400 transition-all"
                   value={newProd.unit}
                   onChange={e => setNewProd({...newProd, unit: e.target.value})}
                 >
-                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                  {INVOICE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -343,6 +483,21 @@ export default function SupplierInvoicePage() {
               </button>
               <button onClick={() => setShowAddModal(false)} className="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black hover:bg-slate-200 transition-all">إلغاء</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {scannerOpen && (
+        <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] p-4 w-full max-w-md">
+            <h3 className="font-black text-center mb-3">وجه الكاميرا للباركود</h3>
+            <video ref={videoRef} className="w-full rounded-2xl bg-black" muted playsInline />
+            <button
+              onClick={stopBarcodeScanner}
+              className="w-full bg-rose-500 text-white py-4 rounded-2xl mt-4 font-black"
+            >
+              إغلاق
+            </button>
           </div>
         </div>
       )}

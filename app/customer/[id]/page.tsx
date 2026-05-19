@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import Link from "next/link";
 interface Product {
   id: string; name: string; unit: string;
   sale_price: number; purchase_price: number; stock_quantity: number;
+  barcode?: string | null;
 }
 interface CartItem extends Product {
   qty: number | string;
@@ -14,31 +15,51 @@ interface CartItem extends Product {
   cost: number;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+  balance?: number;
+}
+
+const cleanBarcode = (value: unknown) => value?.toString().trim() || "";
+
 export default function CustomerInvoicePage() {
   const { id } = useParams();
   const router  = useRouter();
 
-  const [customer, setCustomer]       = useState<any>(null);
+  const [customer, setCustomer]       = useState<Customer | null>(null);
   const [products, setProducts]       = useState<Product[]>([]);
   const [searchTerm, setSearchTerm]   = useState("");
   const [cart, setCart]               = useState<CartItem[]>([]);
   const [cashPaid, setCashPaid]       = useState<number | string>(0);
   const [isSaving, setIsSaving]       = useState(false);
   const [note, setNote]               = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scanControlsRef = useRef<{ stop?: () => void } | null>(null);
+  const scanLockedRef = useRef(false);
 
-  useEffect(() => { if (id) loadData(); }, [id]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     const [{ data: cust }, { data: prods }] = await Promise.all([
       supabase.from("customers").select("*").eq("id", id).single(),
-      supabase.from("products").select("id,name,unit,sale_price,purchase_price,stock_quantity").order("name"),
+      supabase.from("products").select("id,name,unit,sale_price,purchase_price,stock_quantity,barcode").order("name"),
     ]);
     setCustomer(cust);
     setProducts(prods || []);
-  }
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadData();
+    }
+  }, [id, loadData]);
 
   const filteredProducts = useMemo(() =>
-    products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())),
+    products.filter(p =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cleanBarcode(p.barcode).includes(searchTerm)
+    ),
     [products, searchTerm]
   );
 
@@ -46,6 +67,68 @@ export default function CustomerInvoicePage() {
     if (p.stock_quantity <= 0) return alert("الصنف ده خلصان يا عمدة!");
     if (cart.find(i => i.id === p.id)) return;
     setCart(prev => [...prev, { ...p, qty: 1, price: p.sale_price, cost: p.purchase_price }]);
+  };
+
+  const handleBarcodeEntry = (value: string) => {
+    const barcode = cleanBarcode(value);
+
+    if (!barcode) return;
+
+    const found = products.find(p => cleanBarcode(p.barcode) === barcode);
+
+    if (!found) {
+      return alert("الباركود غير مسجل في المخزن");
+    }
+
+    addToCart(found);
+    setSearchTerm(barcode);
+  };
+
+  const startBarcodeScanner = async () => {
+    if (scannerOpen) return;
+
+    scanLockedRef.current = false;
+    setScannerOpen(true);
+
+    setTimeout(async () => {
+      try {
+        if (!videoRef.current) return;
+
+        const { BrowserMultiFormatReader } = await import("@zxing/browser");
+        const reader = new BrowserMultiFormatReader();
+        const controls = await reader.decodeFromConstraints(
+          { video: { facingMode: "environment" } },
+          videoRef.current,
+          (result, _error, controls) => {
+            if (!result || scanLockedRef.current) return;
+
+            scanLockedRef.current = true;
+            controls.stop();
+            setScannerOpen(false);
+            handleBarcodeEntry(result.getText());
+          }
+        );
+
+        scanControlsRef.current = controls;
+      } catch {
+        setScannerOpen(false);
+        alert("تعذر تشغيل الكاميرا");
+      }
+    }, 250);
+  };
+
+  const stopBarcodeScanner = () => {
+    scanControlsRef.current?.stop?.();
+    scanControlsRef.current = null;
+    scanLockedRef.current = false;
+
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+
+    setScannerOpen(false);
   };
 
   const removeFromCart = (pid: string) => setCart(prev => prev.filter(i => i.id !== pid));
@@ -62,6 +145,7 @@ export default function CustomerInvoicePage() {
   const margin     = total > 0 ? Math.round((profit / total) * 100) : 0;
 
   const saveInvoice = async () => {
+    if (!customer) return alert("بيانات العميل لم تحمل بعد");
     if (cart.length === 0) return alert("الفاتورة فاضية!");
     setIsSaving(true);
     try {
@@ -110,7 +194,7 @@ export default function CustomerInvoicePage() {
           {cart.length > 0 && (
             <span className="bg-indigo-600 px-3 py-1 rounded-lg text-[10px] font-black">{cart.length} صنف</span>
           )}
-          <div className={`px-4 py-1.5 rounded-lg text-[10px] font-black ${customer?.balance > 0 ? "bg-rose-600" : "bg-emerald-600"}`}>
+          <div className={`px-4 py-1.5 rounded-lg text-[10px] font-black ${(customer?.balance || 0) > 0 ? "bg-rose-600" : "bg-emerald-600"}`}>
             مديونية: {customer?.balance?.toLocaleString("ar-EG")} ج.م
           </div>
         </div>
@@ -128,7 +212,24 @@ export default function CustomerInvoicePage() {
               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none focus:border-indigo-400 transition-all text-sm"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") handleBarcodeEntry(searchTerm);
+              }}
             />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleBarcodeEntry(searchTerm)}
+                className="bg-slate-900 text-white py-2.5 rounded-xl text-xs font-black transition-all"
+              >
+                إدخال باركود
+              </button>
+              <button
+                onClick={startBarcodeScanner}
+                className="bg-indigo-600 text-white py-2.5 rounded-xl text-xs font-black transition-all"
+              >
+                سكان كاميرا
+              </button>
+            </div>
           </div>
           <div className="overflow-y-auto flex-1 p-3 space-y-2">
             {filteredProducts.map(p => {
@@ -276,6 +377,21 @@ export default function CustomerInvoicePage() {
           </div>
         </div>
       </main>
+
+      {scannerOpen && (
+        <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] p-4 w-full max-w-md">
+            <h3 className="font-black text-center mb-3">وجه الكاميرا للباركود</h3>
+            <video ref={videoRef} className="w-full rounded-2xl bg-black" muted playsInline />
+            <button
+              onClick={stopBarcodeScanner}
+              className="w-full bg-rose-500 text-white py-4 rounded-2xl mt-4 font-black"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');

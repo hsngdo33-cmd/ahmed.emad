@@ -20,21 +20,27 @@ type ScannerControls = {
 };
 
 const generateBarcode = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
+  const randomPart =
+    typeof crypto !== "undefined"
+      ? Array.from(crypto.getRandomValues(new Uint8Array(10)))
+          .map((value) => value % 10)
+          .join("")
+      : Math.floor(Math.random() * 10_000_000_000)
+          .toString()
+          .padStart(10, "0");
 
-  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (char) =>
-    (
-      Number(char) ^
-      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(char) / 4)))
-    ).toString(16)
-  );
+  return `20${randomPart}`;
 };
 
 const isUuid = (value: string) => {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 };
+
+const isPrintableBarcode = (value: string) => {
+  return /^[A-Za-z0-9-]{4,24}$/.test(value);
+};
+
+const UNITS = ["كيلو", "جرام", "مللي", "لتر", "كرتونة", "شكارة", "عبوة", "حبة"];
 
 export default function InventoryPage() {
 
@@ -145,7 +151,7 @@ export default function InventoryPage() {
   const ensureProductBarcode = (product: Product) => {
     const existingBarcode = cleanBarcode(product.barcode);
 
-    if (existingBarcode) {
+    if (existingBarcode && !isUuid(existingBarcode) && existingBarcode.length <= 24) {
       return { ...product, barcode: existingBarcode };
     }
 
@@ -183,11 +189,11 @@ export default function InventoryPage() {
     JsBarcode(canvas, value, {
       format: "CODE128",
       lineColor: "#000",
-      width: 2,
-      height: 70,
+      width: 1.5,
+      height: 55,
       displayValue: true,
-      fontSize: 18,
-      margin: 10,
+      fontSize: 14,
+      margin: 6,
     });
   };
 
@@ -235,11 +241,11 @@ export default function InventoryPage() {
           }
 
           .label{
-            width:300px;
+            width:230px;
             margin:auto;
             border:1px dashed #999;
-            padding:15px;
-            border-radius:12px;
+            padding:10px;
+            border-radius:10px;
           }
 
           img{
@@ -247,14 +253,14 @@ export default function InventoryPage() {
           }
 
           h2{
-            margin:10px 0 5px;
-            font-size:22px;
+            margin:8px 0 4px;
+            font-size:16px;
           }
 
           p{
-            margin:5px 0;
+            margin:3px 0;
             color:#555;
-            font-size:14px;
+            font-size:11px;
           }
 
         </style>
@@ -458,8 +464,8 @@ export default function InventoryPage() {
 
     const barcodeValue = cleanBarcode(editForm.barcode);
 
-    if (barcodeValue && !isUuid(barcodeValue)) {
-      return alert("الباركود لازم يكون UUID صالح. امسح الخانة أو استخدم باركود مولد من النظام.");
+    if (barcodeValue && !isPrintableBarcode(barcodeValue)) {
+      return alert("الباركود لازم يكون 4 إلى 24 رقم/حرف إنجليزي فقط عشان يطبع ويتسكن بسهولة.");
     }
 
     const exists = products.find(
@@ -514,8 +520,8 @@ export default function InventoryPage() {
         ? cleanBarcode(newProduct.barcode)
         : generateUniqueBarcode();
 
-    if (!isUuid(barcodeValue)) {
-      return alert("الباركود لازم يكون UUID صالح. سيب خانة الباركود فاضية وأنا هولده تلقائيًا.");
+    if (!isPrintableBarcode(barcodeValue)) {
+      return alert("الباركود لازم يكون 4 إلى 24 رقم/حرف إنجليزي فقط. سيب الخانة فاضية وأنا هولده تلقائيًا.");
     }
 
     // منع التكرار
@@ -739,10 +745,9 @@ export default function InventoryPage() {
                           }
                           className="w-full border p-2 rounded"
                         >
-                          <option>كيلو</option>
-                          <option>لتر</option>
-                          <option>عبوة</option>
-                          <option>كرتونة</option>
+                          {UNITS.map((unit) => (
+                            <option key={unit} value={unit}>{unit}</option>
+                          ))}
                         </select>
 
                       </td>
@@ -935,6 +940,21 @@ export default function InventoryPage() {
                 }
                 className="w-full border p-4 rounded-2xl"
               />
+
+              <select
+                value={newProduct.unit}
+                onChange={(e) =>
+                  setNewProduct({
+                    ...newProduct,
+                    unit: e.target.value,
+                  })
+                }
+                className="w-full border p-4 rounded-2xl bg-white font-bold"
+              >
+                {UNITS.map((unit) => (
+                  <option key={unit} value={unit}>{unit}</option>
+                ))}
+              </select>
 
               <input
                 placeholder="الباركود"
