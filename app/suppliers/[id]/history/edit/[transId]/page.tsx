@@ -8,6 +8,7 @@ export default function EditSupplierInvoicePage({ params }: { params: Promise<an
   const resolvedParams  = use(params);
   const supplierId      = resolvedParams.id;
   const transId         = resolvedParams.transId;
+  
 
   const [transaction, setTransaction] = useState<any>(null);
   const [items, setItems]             = useState<any[]>([]);

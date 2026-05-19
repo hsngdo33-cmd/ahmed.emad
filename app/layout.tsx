@@ -7,7 +7,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "نظام المحاسبة الذكي",
+  title: "نظام المحاسبة",
   description: "إدارة احترافية متكاملة",
 };
 
