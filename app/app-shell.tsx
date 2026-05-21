@@ -1,0 +1,184 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  BarChart3,
+  Boxes,
+  ChevronLeft,
+  Home,
+  LayoutDashboard,
+  PackagePlus,
+  ReceiptText,
+  Search,
+  Truck,
+  UsersRound,
+  WalletCards,
+} from "lucide-react";
+
+const navItems = [
+  { href: "/", label: "الرئيسية", icon: Home },
+  { href: "/suppliers", label: "الموردين", icon: Truck },
+  { href: "/customer", label: "العملاء", icon: UsersRound },
+  { href: "/inventory", label: "المخازن", icon: Boxes },
+  { href: "/reports", label: "التقارير", icon: BarChart3 },
+];
+
+const quickLinks = [
+  { href: "/inventory", label: "إضافة صنف", icon: PackagePlus },
+  { href: "/suppliers", label: "فاتورة مورد", icon: ReceiptText },
+  { href: "/customer", label: "فاتورة عميل", icon: WalletCards },
+];
+
+function getPageTitle(pathname: string) {
+  if (pathname.startsWith("/suppliers")) return "إدارة الموردين";
+  if (pathname.startsWith("/customer")) return "إدارة العملاء";
+  if (pathname.startsWith("/inventory")) return "المخازن والباركود";
+  if (pathname.startsWith("/reports")) return "التقارير والتحليلات";
+  return "لوحة التحكم";
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const pageTitle = getPageTitle(pathname);
+
+  return (
+    <body className="min-h-screen bg-[#f4f7fb] text-slate-900 font-sans">
+      <div className="flex min-h-screen">
+        <aside className="hidden lg:flex fixed right-0 top-0 z-50 h-screen w-72 flex-col border-l border-slate-200 bg-slate-950 text-white shadow-2xl">
+          <div className="px-6 py-6 border-b border-white/10">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-900/30">
+                <LayoutDashboard className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-lg font-black">نظام المحاسبة</p>
+                <p className="text-xs text-slate-400 font-bold">مخازن، عملاء، موردين</p>
+              </div>
+            </Link>
+          </div>
+
+          <nav className="flex-1 px-4 py-5 space-y-2">
+            {navItems.map((item) => {
+              const active =
+                item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center justify-between rounded-2xl px-4 py-3 font-black transition-all ${
+                    active
+                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-950/30"
+                      : "text-slate-300 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <Icon className="h-5 w-5" />
+                    {item.label}
+                  </span>
+                  {active && <ChevronLeft className="h-4 w-4" />}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="mx-4 mb-4 rounded-3xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs font-black text-slate-400 mb-3">اختصارات سريعة</p>
+            <div className="space-y-2">
+              {quickLinks.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-2 text-sm font-bold text-slate-200 hover:bg-white/10"
+                  >
+                    <Icon className="h-4 w-4 text-emerald-300" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-white/10 text-xs text-slate-400">
+            <div className="flex items-center justify-between">
+              <span className="font-black">حالة النظام</span>
+              <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-emerald-300 font-black">
+                يعمل
+              </span>
+            </div>
+          </div>
+        </aside>
+
+        <main className="flex-1 lg:mr-72 pb-24 lg:pb-0">
+          <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
+            <div className="px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <p className="text-xs font-black text-emerald-600">نظام العمدة</p>
+                  <h1 className="text-2xl font-black text-slate-950">{pageTitle}</h1>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="relative min-w-0 sm:w-80">
+                    <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="search"
+                      placeholder="بحث سريع في الصفحة الحالية..."
+                      className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-11 pl-4 text-sm font-bold outline-none transition focus:border-emerald-400 focus:bg-white"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
+                    {quickLinks.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.label}
+                          href={item.href}
+                          className="inline-flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white hover:bg-emerald-600"
+                        >
+                          <Icon className="h-4 w-4" />
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
+            <div className="mx-auto max-w-7xl">{children}</div>
+          </div>
+        </main>
+      </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-2xl backdrop-blur-xl lg:hidden">
+        <div className="grid grid-cols-5 gap-1">
+          {navItems.map((item) => {
+            const active =
+              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center justify-center rounded-2xl py-2 text-[11px] font-black ${
+                  active ? "bg-emerald-50 text-emerald-700" : "text-slate-500"
+                }`}
+              >
+                <Icon className="mb-1 h-5 w-5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </body>
+  );
+}
