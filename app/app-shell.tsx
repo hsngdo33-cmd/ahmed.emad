@@ -43,9 +43,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pageTitle = getPageTitle(pathname);
 
   return (
-    <body className="min-h-screen bg-[#f4f7fb] text-slate-900 font-sans">
-      <div className="flex min-h-screen">
-        <aside className="hidden lg:flex fixed right-0 top-0 z-50 h-screen w-72 flex-col border-l border-slate-200 bg-slate-950 text-white shadow-2xl">
+    <body className="min-h-screen overflow-x-hidden bg-[#f4f7fb] text-slate-900 font-sans">
+      <div className="flex min-h-screen min-w-0">
+        <aside className="hidden lg:flex fixed right-0 top-0 z-50 h-screen w-64 xl:w-72 flex-col border-l border-slate-200 bg-slate-950 text-white shadow-2xl">
           <div className="px-6 py-6 border-b border-white/10">
             <Link href="/" className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-900/30">
@@ -113,33 +113,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="flex-1 lg:mr-72 pb-24 lg:pb-0">
+        <main className="w-full min-w-0 flex-1 pb-24 lg:mr-64 lg:pb-0 xl:mr-72">
           <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
-            <div className="px-4 sm:px-6 lg:px-8 py-4">
+            <div className="px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-black text-emerald-600">نظام العمدة</p>
-                  <h1 className="text-2xl font-black text-slate-950">{pageTitle}</h1>
+                  <h1 className="truncate text-xl font-black text-slate-950 sm:text-2xl">{pageTitle}</h1>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <div className="relative min-w-0 sm:w-80">
+                <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center">
+                  <div className="relative min-w-0 md:w-72 xl:w-80">
                     <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="search"
                       placeholder="بحث سريع في الصفحة الحالية..."
-                      className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-11 pl-4 text-sm font-bold outline-none transition focus:border-emerald-400 focus:bg-white"
+                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-11 pl-4 text-sm font-bold outline-none transition focus:border-emerald-400 focus:bg-white sm:h-12"
                     />
                   </div>
 
-                  <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
+                  <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 md:pb-0">
                     {quickLinks.map((item) => {
                       const Icon = item.icon;
                       return (
                         <Link
                           key={item.label}
                           href={item.href}
-                          className="inline-flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white hover:bg-emerald-600"
+                          className="inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl bg-slate-950 px-3 text-xs font-black text-white hover:bg-emerald-600 sm:h-12 sm:px-4 sm:text-sm"
                         >
                           <Icon className="h-4 w-4" />
                           {item.label}
@@ -152,13 +152,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </header>
 
-          <div className="px-4 sm:px-6 lg:px-8 py-6">
-            <div className="mx-auto max-w-7xl">{children}</div>
+          <div className="px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+            <div className="mx-auto max-w-7xl min-w-0">{children}</div>
           </div>
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-2xl backdrop-blur-xl lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-2xl backdrop-blur-xl lg:hidden">
         <div className="grid grid-cols-5 gap-1">
           {navItems.map((item) => {
             const active =
@@ -168,12 +168,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center justify-center rounded-2xl py-2 text-[11px] font-black ${
+                className={`flex min-w-0 flex-col items-center justify-center rounded-2xl px-1 py-2 text-[10px] font-black sm:text-[11px] ${
                   active ? "bg-emerald-50 text-emerald-700" : "text-slate-500"
                 }`}
               >
                 <Icon className="mb-1 h-5 w-5" />
-                {item.label}
+                <span className="w-full truncate text-center">{item.label}</span>
               </Link>
             );
           })}
