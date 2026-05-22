@@ -590,23 +590,45 @@ export default function SupplierInvoicePage() {
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
         body { font-family: 'Cairo', sans-serif; background-color: #f1f5f9; }
         @media print {
+          @page { size: auto; margin: 6mm; }
+          html, body { width: auto !important; height: auto !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; background: #fff !important; }
           body * { visibility: hidden !important; }
+          body > div > aside, body > div > nav, body > div > main > header { display: none !important; }
+          body > div, body > div > main, body > div > main > div, body > div > main > div > div { display: block !important; width: 100% !important; max-width: none !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; }
+          main > div > div > div > :not(.print-invoice):not(style) { display: none !important; }
           .print-invoice, .print-invoice * { visibility: visible !important; }
-          .print-invoice { display: block !important; position: absolute; inset: 0; padding: 24px; background: white; color: #0f172a; }
-          .print-card { max-width: 900px; margin: 0 auto; border: 1px solid #dbe3ef; padding: 28px; border-radius: 16px; }
-          .print-header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #0f172a; padding-bottom: 18px; margin-bottom: 22px; }
-          .print-eyebrow { font-size: 12px; font-weight: 900; color: #d97706; margin: 0 0 6px; }
-          .print-header h1 { margin: 0; font-size: 28px; font-weight: 900; }
-          .print-header p { margin: 4px 0; font-weight: 700; }
-          .print-meta { text-align: left; font-size: 13px; }
-          .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          .print-table th { background: #0f172a; color: white; padding: 10px; font-size: 12px; }
-          .print-table td { border-bottom: 1px solid #e2e8f0; padding: 10px; font-weight: 700; font-size: 12px; }
-          .print-summary { margin-right: auto; width: 320px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-          .print-summary p { display: flex; justify-content: space-between; margin: 0; padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-weight: 800; }
-          .print-summary p:last-child { border-bottom: 0; }
-          .print-total { background: #fffbeb; color: #b45309; font-size: 16px; }
-          .print-note { margin-top: 18px; padding: 12px; background: #f8fafc; border-radius: 12px; font-weight: 700; }
+          .print-invoice { display: block !important; position: static !important; inset: auto !important; width: 100%; min-height: 0; padding: 0; background: white; color: #0f172a; font-size: 10px; line-height: 1.35; break-after: auto; page-break-after: auto; }
+          .print-card { width: 100%; max-width: 100%; margin: 0 auto; border: 1px solid #dbe3ef; padding: 12px; border-radius: 10px; }
+          .print-header { display: flex; justify-content: space-between; gap: 14px; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px; }
+          .print-eyebrow { font-size: 9px; font-weight: 900; color: #d97706; margin: 0 0 3px; }
+          .print-header h1 { margin: 0; font-size: 18px; font-weight: 900; }
+          .print-header p { margin: 2px 0; font-weight: 700; font-size: 10px; }
+          .print-meta { text-align: left; font-size: 10px; }
+          .print-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+          .print-table th { background: #0f172a; color: white; padding: 5px 6px; font-size: 9px; }
+          .print-table td { border-bottom: 1px solid #e2e8f0; padding: 5px 6px; font-weight: 700; font-size: 9px; }
+          .print-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; width: 100%; margin: 0; border: 0; border-radius: 0; overflow: visible; }
+          .print-summary p { display: grid; gap: 3px; justify-content: stretch; margin: 0; padding: 7px 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 800; break-inside: avoid; }
+          .print-summary span { font-size: 8px; color: #64748b; }
+          .print-summary b { font-size: 10px; }
+          .print-total { background: #fffbeb; color: #b45309; font-size: 11px; }
+          .print-note { margin-top: 8px; padding: 8px; background: #f8fafc; border-radius: 8px; font-weight: 700; font-size: 9px; }
+        }
+        @media print and (max-width: 90mm) {
+          @page { margin: 3mm; }
+          .print-invoice { font-size: 8px; line-height: 1.25; }
+          .print-card { border: 0; padding: 4px; border-radius: 0; }
+          .print-header { display: block; text-align: center; gap: 0; padding-bottom: 5px; margin-bottom: 6px; }
+          .print-header h1 { font-size: 13px; }
+          .print-header p, .print-meta { text-align: center; font-size: 8px; }
+          .print-table { margin-bottom: 6px; }
+          .print-table th { padding: 3px 2px; font-size: 7px; }
+          .print-table td { padding: 3px 2px; font-size: 7px; }
+          .print-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+          .print-summary p { padding: 4px; border-radius: 5px; }
+          .print-summary span { font-size: 7px; }
+          .print-summary b { font-size: 8px; }
+          .print-note { margin-top: 5px; padding: 5px; font-size: 7px; }
         }
       `}</style>
     </div>

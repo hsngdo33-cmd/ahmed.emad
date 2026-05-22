@@ -35,7 +35,6 @@ export default function ReportsHomePage() {
           <p className="text-xs font-black uppercase tracking-widest text-emerald-600">مركز التقارير</p>
           <h1 className="mt-2 text-3xl font-black text-slate-950">اختار نوع التقرير</h1>
           <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-slate-500">
-            فصلت التقارير في صفحات مستقلة عشان كل جزء يبقى واضح ومريح: العملاء لوحدهم، الموردين لوحدهم، والتصفية العامة لوحدها.
           </p>
         </section>
 
@@ -80,7 +79,6 @@ export default function ReportsHomePage() {
             <div>
               <h2 className="font-black">تنظيم أسرع للمتابعة اليومية</h2>
               <p className="mt-1 text-sm font-bold text-slate-400">
-                كل صفحة فيها نفس فلاتر اليوم والشهر والسنة، لكن النتائج مركزة على القسم المختار فقط.
               </p>
             </div>
           </div>
