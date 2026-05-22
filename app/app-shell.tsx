@@ -11,6 +11,7 @@ import {
   PackagePlus,
   ReceiptText,
   Search,
+  Settings,
   Truck,
   UsersRound,
   WalletCards,
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/customer", label: "العملاء", icon: UsersRound },
   { href: "/inventory", label: "المخازن", icon: Boxes },
   { href: "/reports", label: "التقارير", icon: BarChart3 },
+  { href: "/settings/reports", label: "الإعدادات", icon: Settings },
 ];
 
 const quickLinks = [
@@ -35,6 +37,7 @@ function getPageTitle(pathname: string) {
   if (pathname.startsWith("/customer")) return "إدارة العملاء";
   if (pathname.startsWith("/inventory")) return "المخازن والباركود";
   if (pathname.startsWith("/reports")) return "التقارير والتحليلات";
+  if (pathname.startsWith("/settings")) return "إعدادات النظام";
   return "لوحة التحكم";
 }
 
@@ -118,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs font-black text-emerald-600">نظام العمدة</p>
+                  <p className="text-xs font-black text-emerald-600">المهندس</p>
                   <h1 className="truncate text-xl font-black text-slate-950 sm:text-2xl">{pageTitle}</h1>
                 </div>
 
@@ -159,7 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-2xl backdrop-blur-xl lg:hidden">
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-6 gap-1">
           {navItems.map((item) => {
             const active =
               item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
