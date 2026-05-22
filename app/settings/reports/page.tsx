@@ -86,7 +86,7 @@ export default function ReportSettingsPage() {
     };
   }, []);
 
-  async function saveSettings() {
+  async function saveSettings(chatId = telegramChatId, enabled = dailyEnabled) {
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -96,7 +96,7 @@ export default function ReportSettingsPage() {
         await fetch("/api/report-settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ telegramChatId, dailyEnabled }),
+          body: JSON.stringify({ telegramChatId: chatId, dailyEnabled: enabled }),
         }),
       )) as { settings: ReportSettings };
 
@@ -109,7 +109,7 @@ export default function ReportSettingsPage() {
     }
   }
 
-  async function confirmTelegramLink() {
+  async function confirmTelegramLink(showSuccessMessage = true) {
     setLinking(true);
     setError(null);
     setMessage(null);
@@ -122,9 +122,14 @@ export default function ReportSettingsPage() {
       )) as { settings: ReportSettings };
 
       applySettings(data.settings);
-      setMessage("تم ربط حساب تليجرام بنجاح. التقارير اليومية اتفعلت.");
+      if (showSuccessMessage) {
+        setMessage("تم ربط حساب تليجرام بنجاح. التقارير اليومية اتفعلت.");
+      }
+
+      return data.settings;
     } catch (linkError) {
       setError(getErrorMessage(linkError));
+      return null;
     } finally {
       setLinking(false);
     }
@@ -136,7 +141,18 @@ export default function ReportSettingsPage() {
     setMessage(null);
 
     try {
-      await saveSettings();
+      let chatId = telegramChatId.trim();
+
+      if (!chatId) {
+        const linkedSettings = await confirmTelegramLink(false);
+        chatId = linkedSettings?.telegramChatId.trim() ?? "";
+      }
+
+      if (!chatId) {
+        throw new Error("ابعت كود الربط للبوت الأول، وبعدها اضغط تأكيد الربط أو إرسال تجربة مرة أخرى.");
+      }
+
+      await saveSettings(chatId, true);
       const data = (await readJson(
         await fetch("/api/report-settings/test", {
           method: "POST",
@@ -151,7 +167,8 @@ export default function ReportSettingsPage() {
     }
   }
 
-  const canSave = telegramChatId.trim().length > 0 && !saving && !testing && !linking;
+  const isLinked = telegramChatId.trim().length > 0;
+  const canSave = isLinked && !saving && !testing && !linking;
   const canLink = linkCode.trim().length > 0 && !saving && !testing && !linking;
 
   return (
@@ -208,7 +225,7 @@ export default function ReportSettingsPage() {
 
                 <button
                   type="button"
-                  onClick={confirmTelegramLink}
+                  onClick={() => confirmTelegramLink()}
                   disabled={!canLink}
                   className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
                 >
@@ -216,6 +233,14 @@ export default function ReportSettingsPage() {
                   تأكيد الربط
                 </button>
               </div>
+
+              {isLinked && (
+                <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
+                  <CheckCircle2 className="h-5 w-5 shrink-0" />
+                  <span>الحساب مربوط بالفعل. Chat ID: </span>
+                  <span className="rounded-xl bg-white px-3 py-1 font-black" dir="ltr">{telegramChatId}</span>
+                </div>
+              )}
 
               <button
                 type="button"
@@ -235,15 +260,18 @@ export default function ReportSettingsPage() {
                 {dailyEnabled ? <ToggleRight className="h-9 w-9" /> : <ToggleLeft className="h-9 w-9" />}
               </button>
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-black text-slate-700">Telegram Chat ID المحفوظ</span>
+              <label className="block rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <span className="mb-2 block text-sm font-black text-slate-700">إدخال يدوي اختياري للـ Chat ID</span>
                 <input
                   value={telegramChatId}
                   onChange={(event) => setTelegramChatId(event.target.value)}
-                  placeholder="سيظهر تلقائيا بعد الربط"
-                  className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-left text-lg font-black text-slate-950 outline-none transition focus:border-emerald-400 focus:bg-white"
+                  placeholder="اتركه فاضي واستخدم كود الربط"
+                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 text-left text-lg font-black text-slate-950 outline-none transition focus:border-emerald-400"
                   dir="ltr"
                 />
+                <span className="mt-2 block text-xs font-bold text-slate-400">
+                  مش محتاج تكتبه في الاستخدام الطبيعي. اضغط تأكيد الربط بعد إرسال الكود للبوت.
+                </span>
               </label>
 
               {updatedAt && (
@@ -268,18 +296,18 @@ export default function ReportSettingsPage() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
-                  onClick={saveSettings}
+                  onClick={() => saveSettings()}
                   disabled={!canSave}
                   className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Settings className="h-5 w-5" />}
-                  حفظ يدوي
+                  حفظ يدوي اختياري
                 </button>
 
                 <button
                   type="button"
                   onClick={sendTestReport}
-                  disabled={!canSave}
+                  disabled={!canLink}
                   className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {testing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
