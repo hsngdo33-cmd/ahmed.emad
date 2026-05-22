@@ -1,0 +1,39 @@
+select *
+from (
+  values
+    (
+      'NEXT_PUBLIC_SUPABASE_URL',
+      'Supabase Dashboard > Project Settings > API > Project URL',
+      'رابط مشروع Supabase'
+    ),
+    (
+      'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+      'Supabase Dashboard > Project Settings > API > anon public',
+      'مفتاح عام للفرونت'
+    ),
+    (
+      'SUPABASE_SERVICE_ROLE_KEY',
+      'Supabase Dashboard > Project Settings > API > service_role secret',
+      'مفتاح سري للسيرفر فقط'
+    ),
+    (
+      'TELEGRAM_BOT_TOKEN',
+      'من BotFather على Telegram',
+      'توكن بوت التليجرام'
+    ),
+    (
+      'CRON_SECRET',
+      'اكتب أي كلمة سر قوية من عندك',
+      'حماية رابط التقرير اليومي'
+    ),
+    (
+      'DAILY_REPORT_TIMEZONE',
+      'اكتب Africa/Cairo',
+      'توقيت إرسال التقارير'
+    ),
+    (
+      'TELEGRAM_BOT_USERNAME',
+      'اسم البوت بدون @ - اختياري',
+      'يساعد في عرض لينك البوت'
+    )
+) as env_keys(key_name, where_to_get_it, used_for);
