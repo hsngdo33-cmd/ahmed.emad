@@ -56,6 +56,14 @@ type SupplierTx = {
   description: string | null;
 };
 
+type ExpenseRow = {
+  id: string;
+  category: string | null;
+  amount: number | string | null;
+  description: string | null;
+  expense_date: string | null;
+};
+
 type EntityReport = {
   id: string;
   name: string;
@@ -259,6 +267,11 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [customerTxs, setCustomerTxs] = useState<CustomerTx[]>([]);
   const [supplierTxs, setSupplierTxs] = useState<SupplierTx[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseDescription, setExpenseDescription] = useState("");
+  const [expenseDate, setExpenseDate] = useState(inputDate(today));
+  const [savingExpense, setSavingExpense] = useState(false);
 
   const range = useMemo(
     () => getRange(period, selectedDay, selectedMonth, selectedYear),
@@ -278,8 +291,9 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
         suppliersResult,
         customerTxResult,
         supplierTxResult,
+        expensesResult,
       ] = await Promise.all([
-        supabase.from("customers").select("id, name, phone, balance").eq("is_hidden", false).order("name"),
+        supabase.from("customers").select("id, name, phone, balance").order("name"),
         supabase.from("suppliers").select("id, name, phone, balance").order("name"),
         supabase
           .from("customer_transactions")
@@ -293,13 +307,20 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
           .gte("created_at", startIso)
           .lte("created_at", endIso)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("expenses")
+          .select("id, category, amount, description, expense_date")
+          .gte("expense_date", inputDate(range.start))
+          .lte("expense_date", inputDate(range.end))
+          .order("expense_date", { ascending: false }),
       ]);
 
       const requestError =
         customersResult.error ??
         suppliersResult.error ??
         customerTxResult.error ??
-        supplierTxResult.error;
+        supplierTxResult.error ??
+        expensesResult.error;
 
       if (requestError) throw requestError;
 
@@ -307,6 +328,7 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
       setSuppliers((suppliersResult.data ?? []) as SupplierRow[]);
       setCustomerTxs((customerTxResult.data ?? []) as CustomerTx[]);
       setSupplierTxs((supplierTxResult.data ?? []) as SupplierTx[]);
+      setExpenses((expensesResult.data ?? []) as ExpenseRow[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "حدث خطأ أثناء تحميل التقارير");
     } finally {
@@ -317,6 +339,37 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
   useEffect(() => {
     load();
   }, [load]);
+
+  async function handleAddExpense() {
+    const amount = Number(expenseAmount);
+    if (!amount || amount <= 0) {
+      alert("اكتب مبلغ مصروف صحيح");
+      return;
+    }
+
+    setSavingExpense(true);
+    try {
+      const { error } = await supabase.from("expenses").insert([
+        {
+          amount,
+          description: expenseDescription.trim() || "مصروف عام",
+          category: "مصروف",
+          expense_date: expenseDate || inputDate(today),
+        },
+      ]);
+
+      if (error) throw error;
+      setExpenseAmount("");
+      setExpenseDescription("");
+      setExpenseDate(inputDate(today));
+      await load();
+    } catch (err) {
+      console.error(err);
+      alert("حدث خطأ أثناء تسجيل المصروف. تأكد من صلاحيات جدول expenses في Supabase.");
+    } finally {
+      setSavingExpense(false);
+    }
+  }
 
   const customerReports = useMemo<EntityReport[]>(() => {
     const map = new Map<string, EntityReport>();
@@ -404,9 +457,10 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
   const totalCollected = customerPayments.reduce((sum, tx) => sum + num(tx.amount), 0);
   const totalPurchases = supplierInvoices.reduce((sum, tx) => sum + num(tx.amount), 0);
   const totalSupplierPaid = supplierPayments.reduce((sum, tx) => sum + num(tx.amount), 0);
+  const totalExpenses = expenses.reduce((sum, expense) => sum + num(expense.amount), 0);
   const currentCustomerDebt = customers.reduce((sum, row) => sum + Math.max(num(row.balance), 0), 0);
   const currentSupplierDebt = suppliers.reduce((sum, row) => sum + Math.max(num(row.balance), 0), 0);
-  const netCash = totalCollected - totalSupplierPaid;
+  const netCash = totalCollected - totalSupplierPaid - totalExpenses;
   const profitMargin = totalSales ? Math.round((totalProfit / totalSales) * 100) : 0;
   const supplierPayRate = totalPurchases ? Math.round((totalSupplierPaid / totalPurchases) * 100) : 0;
   const topProfitCustomers = [...customerReports]
@@ -620,6 +674,23 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
               />
             </section>
 
+            <ExpensePanel
+              amount={expenseAmount}
+              description={expenseDescription}
+              date={expenseDate}
+              expenses={expenses}
+              netCash={netCash}
+              periodLabel={PERIOD_LABELS[period]}
+              saving={savingExpense}
+              totalCollected={totalCollected}
+              totalExpenses={totalExpenses}
+              totalSupplierPaid={totalSupplierPaid}
+              onAmountChange={setExpenseAmount}
+              onDateChange={setExpenseDate}
+              onDescriptionChange={setExpenseDescription}
+              onSubmit={handleAddExpense}
+            />
+
             <section className="grid gap-4 lg:grid-cols-3">
               <InsightStrip
                 icon={TrendingUp}
@@ -723,6 +794,146 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function ExpensePanel({
+  amount,
+  description,
+  date,
+  expenses,
+  netCash,
+  periodLabel,
+  saving,
+  totalCollected,
+  totalExpenses,
+  totalSupplierPaid,
+  onAmountChange,
+  onDateChange,
+  onDescriptionChange,
+  onSubmit,
+}: {
+  amount: string;
+  description: string;
+  date: string;
+  expenses: ExpenseRow[];
+  netCash: number;
+  periodLabel: string;
+  saving: boolean;
+  totalCollected: number;
+  totalExpenses: number;
+  totalSupplierPaid: number;
+  onAmountChange: (value: string) => void;
+  onDateChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black text-slate-950">تسجيل مصروف</h2>
+            <p className="mt-1 text-xs font-bold text-slate-400">سجل أي مبلغ اتصرف عشان يظهر في حساب الكاش.</p>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-600 text-white">
+            <WalletCards className="h-6 w-6" />
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          <input
+            type="number"
+            min="0"
+            value={amount}
+            onChange={(event) => onAmountChange(event.target.value)}
+            placeholder="المبلغ"
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-900 outline-none focus:border-rose-300"
+          />
+          <input
+            value={description}
+            onChange={(event) => onDescriptionChange(event.target.value)}
+            placeholder="الوصف: بنزين، إيجار، شحن..."
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-rose-300"
+          />
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => onDateChange(event.target.value)}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-900 outline-none focus:border-rose-300"
+          />
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={saving}
+            className="rounded-2xl bg-rose-600 px-5 py-3 text-sm font-black text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving ? "جاري الحفظ..." : "حفظ المصروف"}
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-black text-slate-950">ملخص الكاش</h2>
+            <p className="text-xs font-bold text-slate-400">{periodLabel}</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-black ${netCash >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+            المفروض معاك {money(netCash)} ج
+          </span>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          <CashMiniCard label="التحصيل" value={totalCollected} tone="emerald" />
+          <CashMiniCard label="سداد موردين" value={totalSupplierPaid} tone="amber" />
+          <CashMiniCard label="مصاريفك" value={totalExpenses} tone="rose" />
+          <CashMiniCard label="الكاش" value={netCash} tone={netCash >= 0 ? "slate" : "rose"} />
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          {expenses.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm font-bold text-slate-400">
+              لا توجد مصاريف مسجلة في الفترة المختارة
+            </div>
+          ) : (
+            expenses.slice(0, 6).map((expense) => (
+              <div key={expense.id} className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-900">{expense.description || "مصروف عام"}</p>
+                  <p className="mt-1 text-[10px] font-bold text-slate-400">{expense.expense_date || "-"}</p>
+                </div>
+                <p className="shrink-0 font-black text-rose-600">{money(num(expense.amount))} ج</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CashMiniCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "emerald" | "amber" | "rose" | "slate";
+}) {
+  const styles = {
+    emerald: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
+    rose: "bg-rose-50 text-rose-700",
+    slate: "bg-slate-950 text-white",
+  };
+
+  return (
+    <div className={`rounded-2xl px-4 py-3 ${styles[tone]}`}>
+      <p className="text-[10px] font-black opacity-70">{label}</p>
+      <p className="mt-1 text-lg font-black">{money(value)} ج</p>
     </div>
   );
 }
