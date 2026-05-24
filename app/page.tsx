@@ -70,7 +70,7 @@ export default function Dashboard() {
         { data: products },
         { data: todayTx },
       ] = await Promise.all([
-        supabase.from("customers").select("balance"),
+        supabase.from("customers").select("balance").eq("is_hidden", false),
         supabase.from("suppliers").select("balance"),
         supabase.from("customer_transactions").select("amount, profit, type").gte("created_at", start).lte("created_at", end),
         supabase.from("products").select("name, stock_quantity"),

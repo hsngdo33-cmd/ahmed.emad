@@ -6,9 +6,13 @@ create table if not exists public.customers (
   name text not null,
   phone text,
   balance numeric default 0,
+  is_hidden boolean not null default false,
   created_at timestamptz default now(),
   constraint customers_pkey primary key (id)
 );
+
+alter table public.customers
+add column if not exists is_hidden boolean not null default false;
 
 create table if not exists public.suppliers (
   id uuid not null default gen_random_uuid(),

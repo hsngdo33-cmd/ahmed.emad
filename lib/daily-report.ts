@@ -149,7 +149,7 @@ export async function buildDailyReport(date = new Date(), timeZone = env("DAILY_
       .select("id, amount, type, created_at")
       .gte("created_at", range.start)
       .lte("created_at", range.end),
-    supabase.from("customers").select("balance"),
+    supabase.from("customers").select("balance").eq("is_hidden", false),
     supabase.from("suppliers").select("balance"),
     supabase.from("products").select("name, stock_quantity"),
   ]);

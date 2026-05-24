@@ -279,7 +279,7 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
         customerTxResult,
         supplierTxResult,
       ] = await Promise.all([
-        supabase.from("customers").select("id, name, phone, balance").order("name"),
+        supabase.from("customers").select("id, name, phone, balance").eq("is_hidden", false).order("name"),
         supabase.from("suppliers").select("id, name, phone, balance").order("name"),
         supabase
           .from("customer_transactions")

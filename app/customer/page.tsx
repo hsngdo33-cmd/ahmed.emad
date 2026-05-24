@@ -9,6 +9,7 @@ interface Customer {
   name: string;
   phone: string;
   balance: number;
+  is_hidden?: boolean;
   created_at: string;
 }
 
@@ -39,7 +40,11 @@ export default function CustomersListPage() {
 
   async function fetchCustomers() {
     setLoading(true);
-    const { data } = await supabase.from("customers").select("*").order("name");
+    const { data } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("is_hidden", false)
+      .order("name");
     setCustomers(data || []);
     setLoading(false);
   }
@@ -72,11 +77,14 @@ export default function CustomersListPage() {
     if (!selectedCustomer) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("customers").delete().eq("id", selectedCustomer.id);
+      const { error } = await supabase
+        .from("customers")
+        .update({ is_hidden: true })
+        .eq("id", selectedCustomer.id);
       if (error) throw error;
       setShowDeleteModal(false);
       fetchCustomers();
-    } catch { alert("عفواً: لا يمكن حذف العميل لأنه مرتبط بعمليات مسجلة."); }
+    } catch { alert("حدث خطأ أثناء إخفاء العميل."); }
     finally { setSaving(false); }
   }
 
