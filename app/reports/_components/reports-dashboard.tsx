@@ -759,7 +759,7 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
                 { label: "إجمالي المبيعات", value: totalSales },
                 { label: "إجمالي التحصيل", value: totalCollected },
                 { label: "صافي الربح", value: totalProfit },
-                { label: "الرصيد الحالي", value: currentCustomerDebt },
+                { label: " دين ", value: currentCustomerDebt },
               ]}
             >
               <EntityTable
@@ -781,7 +781,7 @@ export function ReportsDashboard({ view }: { view: "overview" | "customers" | "s
                 { label: "إجمالي التوريد", value: totalPurchases },
                 { label: "إجمالي السداد", value: totalSupplierPaid },
                 { label: "المتبقي للفترة", value: totalPurchases - totalSupplierPaid },
-                { label: "الرصيد الحالي", value: currentSupplierDebt },
+                { label: " دين ", value: currentSupplierDebt },
               ]}
             >
               <EntityTable
@@ -1279,7 +1279,7 @@ function EntityTable({
             <th className="p-4">{mode === "customers" ? "إجمالي المبيعات" : "إجمالي التوريد"}</th>
             <th className="p-4">{mode === "customers" ? "المحصل" : "المسدد"}</th>
             {mode === "customers" && <th className="p-4">الربح</th>}
-            <th className="p-4">الرصيد الحالي</th>
+            <th className="p-4"> دين </th>
             <th className="p-4">آخر حركة</th>
             <th className="p-4">الحالة</th>
             <th className="p-4"></th>
