@@ -1319,7 +1319,7 @@ function EntityTable({
                     isClear ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
                   }`}>
                     {isClear && <CheckCircle2 className="h-3 w-3" />}
-                    {isClear ? "مسدد" : "له رصيد"}
+                    {isClear ? "مسدد" : " مديون "}
                   </span>
                 </td>
                 <td className="p-4">

@@ -426,7 +426,7 @@ export default function CustomerInvoicePage() {
             <div className="print-meta">
               <p>التاريخ: {new Date().toLocaleDateString("ar-EG")}</p>
               <p>العميل: {customer?.name || "-"}</p>
-              <p>الرصيد السابق: {(customer?.balance || 0).toLocaleString("ar-EG")} ج.م</p>
+              <p>الدين السابق: {(customer?.balance || 0).toLocaleString("ar-EG")} ج.م</p>
             </div>
           </div>
           <table className="print-table">

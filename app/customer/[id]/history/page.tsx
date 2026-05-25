@@ -19,9 +19,9 @@ function txIcon(type: string) {
 
 function txLabel(type: string) {
   if (type === "sale")          return "فاتورة بيع";
-  if (type === "payment")       return "سداد مع فاتورة";
+  if (type === "payment")       return "سداد أثناء فاتورة";
   if (type === "مديونية قديمة") return "مديونية قديمة";
-  if (type === "تحصيل نقدي")   return "تحصيل نقدي";
+  if (type === "تحصيل نقدي")   return "تحصيل نقدي بدون فاتورة";
   return type;
 }
 
@@ -148,8 +148,8 @@ export default function CustomerHistory() {
   const filterTabs: { key: TxType; label: string }[] = [
     { key: "all",          label: `الكل (${transactions.length})` },
     { key: "sale",         label: `فواتير (${transactions.filter(t=>t.type==="sale").length})` },
-    { key: "payment",      label: `سداد (${transactions.filter(t=>t.type==="payment").length})` },
-    { key: "تحصيل نقدي",  label: `تحصيل (${transactions.filter(t=>t.type==="تحصيل نقدي").length})` },
+    { key: "payment",      label: `سداد أثناء فاتورة (${transactions.filter(t=>t.type==="payment").length})` },
+    { key: "تحصيل نقدي",  label: `تحصيل بدون فاتورة (${transactions.filter(t=>t.type==="تحصيل نقدي").length})` },
     { key: "مديونية قديمة", label: `قديم (${transactions.filter(t=>t.type==="مديونية قديمة").length})` },
   ];
 
