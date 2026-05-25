@@ -4,13 +4,14 @@ import { supabase } from "@/lib/supabase";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-type TxType = "all" | "sale" | "payment" | "تحصيل نقدي";
+type TxType = "all" | "sale" | "payment" | "تحصيل نقدي" | "مديونية قديمة";
 
 const SALE_TYPES    = ["sale", "بيع"];
 const PAYMENT_TYPES = ["payment", "تحصيل نقدي"];
 
 function txIcon(type: string) {
   if (SALE_TYPES.includes(type))    return { icon: "📦", bg: "bg-indigo-100", color: "text-indigo-600" };
+  if (type === "مديونية قديمة")     return { icon: "📌", bg: "bg-rose-100", color: "text-rose-600" };
   if (type === "تحصيل نقدي")        return { icon: "💵", bg: "bg-emerald-100", color: "text-emerald-600" };
   if (type === "payment")           return { icon: "💳", bg: "bg-blue-100",    color: "text-blue-600" };
   return { icon: "📄", bg: "bg-slate-100", color: "text-slate-600" };
@@ -19,6 +20,7 @@ function txIcon(type: string) {
 function txLabel(type: string) {
   if (type === "sale")          return "فاتورة بيع";
   if (type === "payment")       return "سداد مع فاتورة";
+  if (type === "مديونية قديمة") return "مديونية قديمة";
   if (type === "تحصيل نقدي")   return "تحصيل نقدي";
   return type;
 }
@@ -148,6 +150,7 @@ export default function CustomerHistory() {
     { key: "sale",         label: `فواتير (${transactions.filter(t=>t.type==="sale").length})` },
     { key: "payment",      label: `سداد (${transactions.filter(t=>t.type==="payment").length})` },
     { key: "تحصيل نقدي",  label: `تحصيل (${transactions.filter(t=>t.type==="تحصيل نقدي").length})` },
+    { key: "مديونية قديمة", label: `قديم (${transactions.filter(t=>t.type==="مديونية قديمة").length})` },
   ];
 
   return (

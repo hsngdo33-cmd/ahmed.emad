@@ -47,11 +47,38 @@ export default function CustomersListPage() {
   async function handleAddCustomer() {
     if (!newCustomer.name.trim()) return alert("الاسم مطلوب!");
     setSaving(true);
-    await supabase.from("customers").insert([newCustomer]);
-    setNewCustomer({ name: "", phone: "", balance: 0 });
-    setShowAddModal(false);
-    setSaving(false);
-    fetchCustomers();
+    try {
+      const openingBalance = Number(newCustomer.balance) || 0;
+      const { data: customer, error: customerError } = await supabase
+        .from("customers")
+        .insert([newCustomer])
+        .select("id")
+        .single();
+
+      if (customerError) throw customerError;
+
+      if (openingBalance > 0 && customer?.id) {
+        const { error: transactionError } = await supabase.from("customer_transactions").insert([
+          {
+            customer_id: customer.id,
+            amount: openingBalance,
+            type: "مديونية قديمة",
+            description: "رصيد افتتاحي عند إضافة العميل",
+          },
+        ]);
+
+        if (transactionError) throw transactionError;
+      }
+
+      setNewCustomer({ name: "", phone: "", balance: 0 });
+      setShowAddModal(false);
+      fetchCustomers();
+    } catch (error) {
+      console.error(error);
+      alert("حدث خطأ أثناء إضافة العميل");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleUpdateCustomer() {
